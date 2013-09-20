@@ -14,6 +14,7 @@ function sets_framework_yii() {
 case "$1" in
     detect)
         if [ ! -f "$BUILD_DIR/composer.json" ]; then
+            echo "-----> !!!! No Composer.JSON"
             exit 1
         fi
 
