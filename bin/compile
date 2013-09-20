@@ -90,10 +90,6 @@ function package_index_file() {
     jq --raw-output '.extra.heroku["index-document"] // "index.php"' < "$BUILD_DIR/composer.json"
 }
 
-function package_framework() {
-    jq --raw-output '.extra.heroku.framework // ""' < "$BUILD_DIR/composer.json"
-}
-
 function package_apache_version() {
     jq --raw-output ".extra.heroku.engines.apache // \"default\"" < "$BUILD_DIR/composer.json"
 }
@@ -137,7 +133,6 @@ PHP_VERSION="default"
 APACHE_VERSION="default"
 DOCUMENT_ROOT="/app"
 INDEX_DOCUMENT="index.php"
-FRAMEWORK=
 PHP_EXTRA_CONFIG=
 PHP_INCLUDES=
 COMPILE_CMD=
@@ -149,7 +144,6 @@ if [ -f "$BUILD_DIR/composer.json" ]; then
     APACHE_VERSION=$(package_apache_version)
     DOCUMENT_ROOT=$(package_document_root)
     INDEX_DOCUMENT=$(package_index_file)
-    FRAMEWORK=$(package_framework)
     PHP_EXTRA_CONFIG=$(package_php_config)
     PHP_INCLUDES=$(package_php_includes)
     COMPILE_CMD=$(package_compile_cmd)
@@ -175,7 +169,7 @@ APACHE_VERSION = "2.2.22"
 VENDORED_APACHE=$(mktmpdir apache)
 VENDORED_PHP=$(mktmpdir php)
 
-echo "-----> Bundling NGINX ${APACHE_VERSION}"
+echo "-----> Bundling APACHE $APACHE_VERSION}"
 fetch_package_apache "$APACHE_VERSION" "$VENDORED_APACHE"
 
 echo "-----> Bundling PHP ${PHP_VERSION}"
@@ -196,39 +190,6 @@ if [ -n "$BUILDPACK_DEBUG" ]; then
     ls -R vendor/apache
     ls -R vendor/php
 fi
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 mkdir -p "conf"
 cp "$basedir/../conf/apache/httpd.conf" "vendor/apache/conf/httpd.conf"
