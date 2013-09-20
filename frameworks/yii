@@ -3,12 +3,12 @@
 BUILD_DIR="$2"
 basedir="$( cd -P "$( dirname "$0" )" && pwd )"
 
-function requires_silex() {
-    [ $(jq --raw-output '.require["silex/silex"]' < "$BUILD_DIR/composer.json") != "null" ]
+function requires_yii() {
+    [ $(jq --raw-output '.require["yiisoft/yii"]' < "$BUILD_DIR/composer.json") != "null" ]
 }
 
-function sets_framework_silex() {
-    [ $(jq --raw-output '.extra.heroku.framework' < "$BUILD_DIR/composer.json") == "silex" ]
+function sets_framework_yii() {
+    [ $(jq --raw-output '.extra.heroku.framework' < "$BUILD_DIR/composer.json") == "yii" ]
 }
 
 case "$1" in
@@ -17,15 +17,15 @@ case "$1" in
             exit 1
         fi
 
-        if requires_silex || sets_framework_silex; then
-            echo "-----> Detected Silex app"
+        if requires_yii || sets_framework_yii; then
+            echo "-----> Detected Yii app"
             exit 0
         else
             exit 1
         fi
         ;;
     compile)
-        echo "-----> Setting up Silex app"
-        cp "$basedir/../conf/nginx/silex.conf.erb" "$BUILD_DIR/conf/site.conf.erb"
+        echo "-----> Setting up Yii app"
+        cp "$basedir/../conf/nginx/yii.conf.erb" "$BUILD_DIR/conf/site.conf.erb"
         ;;
 esac
