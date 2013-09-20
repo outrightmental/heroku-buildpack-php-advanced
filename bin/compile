@@ -44,16 +44,16 @@ function install_composer_deps() {
 
     echo "-----> Vendoring Composer"
     {
-        mkdir -p "$target/vendor/composer/bin"
-        curl -L "http://getcomposer.org/composer.phar" > "$target/vendor/composer/bin/composer.phar"
-        chmod a+x "$target/vendor/composer/bin/composer.phar"
+        mkdir -p "$target/app/vendor/composer/bin"
+        curl -L "http://getcomposer.org/composer.phar" > "$target/app/vendor/composer/bin/composer.phar"
+        chmod a+x "$target/app/vendor/composer/bin/composer.phar"
     } | indent
 
     echo "-----> Installing application dependencies with Composer"
     {
         cd "$target"
-        "$BUILD_DIR/vendor/php/bin/php" \
-            "$target/vendor/composer/bin/composer.phar" install \
+        "$BUILD_DIR/app/vendor/php/bin/php" \
+            "$target/app/vendor/composer/bin/composer.phar" install \
             --prefer-dist \
             --optimize-autoloader \
             --no-interaction
@@ -173,7 +173,7 @@ echo "-----> Bundling PHP ${PHP_VERSION}"
 fetch_package php "$PHP_VERSION" "$VENDORED_PHP"
 
 echo "-----> Vendoring binaries into slug"
-[ ! -d "$BUILD_DIR/vendor" ] && mkdir -p "$BUILD_DIR/vendor"
+[ ! -d "$BUILD_DIR/app/vendor" ] && mkdir -p "$BUILD_DIR/app/vendor"
 cp -R "$VENDORED_NGINX/" "vendor/nginx"
 cp -R "$VENDORED_PHP/" "vendor/php"
 
@@ -198,7 +198,7 @@ for conf in $PHP_EXTRA_CONFIG; do
 done
 
 for include in $PHP_INCLUDES; do
-    cp "$BUILD_DIR/$include" "vendor/php/etc/conf.d"
+    cp "$BUILD_DIR/$include" "app/vendor/php/etc/conf.d"
 done
 
 for f in "$basedir/../frameworks/"*; do
@@ -270,3 +270,33 @@ nginx -p "/app/vendor/nginx" -c /app/vendor/nginx/conf/nginx.conf
 SH
 
 chmod a+x "bin/run"
+echo ""
+echo "                                           ~??IIIII?I~                         ,"
+echo "                                     ~II7I77I7I:                               ,"
+echo "                                 I??II777?                                     ,"
+echo "                             :??I,II7                                          ,"
+echo "                          +?I,=II:                    +I?                      ,"
+echo "                        +I, ?I?                      ?  ?=+                    ,"
+echo "                     :?+ :?7                            ,??=,                  ,"
+echo "                   ~?? II                               ,??++                  ,"
+echo "            ~:   =?+ ?I         :      =7       =       ?I??+                  ,"
+echo "          :=+  :+=,?I          ~                       :7I??                   ,"
+echo "           ?:~+, =I                 +77777?          +7 ~                      ,"
+echo "            =?II+               ?=IIII~  +=                                    ,"
+echo "           ,?? =+I?:    =~  ?II?++??      7= ~                                 ,"
+echo "          ??+I   ,?=+   I+?+?III~=++     =III+                                 ,"
+echo "        7                ~~=     ,+  =?III?I                                   ,"
+echo "       +:+?+               ===,:??+,  =I?                                      ,"
+echo "                          ,=++?II????I???                                      ,"
+echo "                                  ?:: ~ ,,                                     ,"
+echo "                                 I        :?                                   ,"
+echo "        :                       ~I,  ? I: ?I                                   ,"
+echo "          =~:                    +?IIIII?=                                     ,"
+echo "            ,====:                                           +++               ,"
+echo "               ~=++==++~                                     ?+,    =+++       ,"
+echo "                   ,?++??I????II+=:,                     ,~,:=~ ++?= ~+=       ,"
+echo "                          ++?+I?I?: :=?II7I7I7777??=~:,    ,==, ~    ,         ,"
+echo "                                  ~+77I7?II?II+=~=++?++=,   +?=                ,"
+echo "                                                          +=~:                 ,"
+echo ""
+echo "-----> Feels good"
