@@ -23,6 +23,18 @@ function fetch_package() {
     curl "$package" -L -s -o - | tar xzf - -C "$location"
 }
 
+function fetch_package_apache() {
+    local APACHE_VERSION="$1"
+    local location="$2"
+
+    mkdir -p "$location"
+
+    local package="https://s3.amazonaws.com/php-lp/apache-$APACHE_VERSION.tar.gz"
+
+    curl "$package" -L -s -o - | tar xzf - -C "$location"
+}
+
+
 function indent() {
     c='s/^/       /'
     case $(uname) in
@@ -82,8 +94,8 @@ function package_framework() {
     jq --raw-output '.extra.heroku.framework // ""' < "$BUILD_DIR/composer.json"
 }
 
-function package_nginx_version() {
-    jq --raw-output ".extra.heroku.engines.nginx // \"default\"" < "$BUILD_DIR/composer.json"
+function package_apache_version() {
+    jq --raw-output ".extra.heroku.engines.apache // \"default\"" < "$BUILD_DIR/composer.json"
 }
 
 function package_php_version() {
@@ -98,8 +110,8 @@ function package_php_includes() {
     jq --raw-output '.extra.heroku["php-includes"] // [] | .[]' < "$BUILD_DIR/composer.json"
 }
 
-function package_nginx_includes() {
-    jq --raw-output '.extra.heroku["nginx-includes"] // [] | .[]' < "$BUILD_DIR/composer.json"
+function package_apache_includes() {
+    jq --raw-output '.extra.heroku["apache-includes"] // [] | .[]' < "$BUILD_DIR/composer.json"
 }
 
 function package_compile_cmd() {
@@ -117,40 +129,39 @@ curl "http://stedolan.github.com/jq/download/linux64/jq" -L -s -o - > "$HOME/bin
 chmod +x "$HOME/bin/jq"
 
 DEFAULT_PHP="5.5.3"
-DEFAULT_NGINX="1.4.2"
+DEAULT_APACHE="2.2.22"
 
 AVAILABLE_PHP_VERSIONS=$(curl "http://${S3_BUCKET}.s3.amazonaws.com/manifest.php" 2> /dev/null)
-AVAILABLE_NGINX_VERSIONS=$(curl "http://${S3_BUCKET}.s3.amazonaws.com/manifest.nginx" 2> /dev/null)
 
 PHP_VERSION="default"
-NGINX_VERSION="default"
+APACHE_VERSION="default"
 DOCUMENT_ROOT="/app"
 INDEX_DOCUMENT="index.php"
 FRAMEWORK=
 PHP_EXTRA_CONFIG=
 PHP_INCLUDES=
 COMPILE_CMD=
-NGINX_INCLUDES=
+APACHE_INCLUDES=
 
 # Read config variables from composer.json if it exists
 if [ -f "$BUILD_DIR/composer.json" ]; then
     PHP_VERSION=$(package_php_version)
-    NGINX_VERSION=$(package_nginx_version)
+    APACHE_VERSION=$(package_apache_version)
     DOCUMENT_ROOT=$(package_document_root)
     INDEX_DOCUMENT=$(package_index_file)
     FRAMEWORK=$(package_framework)
     PHP_EXTRA_CONFIG=$(package_php_config)
     PHP_INCLUDES=$(package_php_includes)
     COMPILE_CMD=$(package_compile_cmd)
-    NGINX_INCLUDES=$(package_nginx_includes)
+    APACHE_INCLUDES=$(package_apache_includes)
 fi
 
 if [ "$PHP_VERSION" = "default" ]; then
     PHP_VERSION="$DEFAULT_PHP"
 fi
 
-if [ "$NGINX_VERSION" = "default" ]; then
-    NGINX_VERSION="$DEFAULT_NGINX"
+if [ "$APACHE_VERSION" = "default" ]; then
+    APACHE_VERSION="$DEFAULT_APACHE"
 fi
 
 # Look for ".*" versions, match them against all available versions
@@ -159,37 +170,68 @@ if echo "$PHP_VERSION" | grep '\*' &>/dev/null; then
     PHP_VERSION=$(echo "$AVAILABLE_PHP_VERSIONS" | grep "^$PHP_VERSION$" | sort -r | head -n1)
 fi
 
-if echo "$NGINX_VERSION" | grep '\*' &>/dev/null; then
-    NGINX_VERSION=$(echo "$AVAILABLE_NGINX_VERSIONS" | grep "^$NGINX_VERSION$" | sort -r | head -n1)
-fi
+APACHE_VERSION = "2.2.22"
 
-VENDORED_NGINX=$(mktmpdir nginx)
+VENDORED_APACHE=$(mktmpdir apache)
 VENDORED_PHP=$(mktmpdir php)
 
-echo "-----> Bundling NGINX ${NGINX_VERSION}"
-fetch_package nginx "$NGINX_VERSION" "$VENDORED_NGINX"
+echo "-----> Bundling NGINX ${APACHE_VERSION}"
+fetch_package_apache "$APACHE_VERSION" "$VENDORED_APACHE"
 
 echo "-----> Bundling PHP ${PHP_VERSION}"
 fetch_package php "$PHP_VERSION" "$VENDORED_PHP"
 
 echo "-----> Vendoring binaries into slug"
 [ ! -d "$BUILD_DIR/vendor" ] && mkdir -p "$BUILD_DIR/vendor"
-cp -R "$VENDORED_NGINX/" "vendor/nginx"
+cp -R "$VENDORED_APACHE/" "vendor/apache"
 cp -R "$VENDORED_PHP/" "vendor/php"
 
-export PATH=/app/vendor/nginx/sbin:/app/vendor/php/bin:/app/vendor/php/sbin:$PATH
+export PATH=/app/vendor/apache/bin:/app/vendor/php/bin:/app/vendor/php/bin:$PATH
 
 # Test that all packages were fetched and extracted successfully
-test -d "vendor/nginx"
+test -d "vendor/apache"
 test -d "vendor/php"
 
 if [ -n "$BUILDPACK_DEBUG" ]; then
-    ls -R vendor/nginx
+    ls -R vendor/apache
     ls -R vendor/php
 fi
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 mkdir -p "conf"
-cp "$basedir/../conf/nginx/base.conf.erb" "conf/nginx.conf.erb"
+cp "$basedir/../conf/apache/httpd.conf" "vendor/apache/conf/httpd.conf"
 cp "$basedir/../conf/php/php-fpm.conf" "vendor/php/etc/php-fpm.conf"
 cp "$basedir/../conf/php/php.ini" "vendor/php/etc/php.ini"
 
@@ -201,29 +243,10 @@ for include in $PHP_INCLUDES; do
     cp "$BUILD_DIR/$include" "vendor/php/etc/conf.d"
 done
 
-for f in "$basedir/../frameworks/"*; do
-    if "$f" detect "$BUILD_DIR"; then
-        FRAMEWORK="$f"
-    fi
-done
-
-# Fall back to classic mode
-if [ -z "$FRAMEWORK" ]; then
-    FRAMEWORK="$basedir/../frameworks/default"
-fi
-
-if [ ! -f "$FRAMEWORK" ] && [ -f "$basedir/../frameworks/$FRAMEWORK" ]; then
-    FRAMEWORK="$basedir/../frameworks/$FRAMEWORK"
-fi
-
-if [ -n "$FRAMEWORK" ] && [ -f "$FRAMEWORK" ]; then
-    "$FRAMEWORK" compile "$BUILD_DIR" "$CACHE_DIR"
-fi
-
 test ! -d ".profile.d" && mkdir -p .profile.d || true
 
 cat > ".profile.d/php.sh" <<SH
-export PATH=/sbin:/bin:/usr/sbin:/usr/bin:/app/bin:/app/vendor/nginx/sbin:/app/vendor/php/sbin:/app/vendor/php/bin:/app/vendor/bin:\$PATH
+export PATH=/sbin:/bin:/usr/sbin:/usr/bin:/app/bin:/app/vendor/apache/bin:/app/vendor/php/sbin:/app/vendor/php/bin:/app/vendor/bin:\$PATH
 SH
 
 install_composer_deps "$BUILD_DIR"
@@ -249,54 +272,55 @@ done
 
 export DOCUMENT_ROOT="$DOCUMENT_ROOT"
 export INDEX_DOCUMENT="$INDEX_DOCUMENT"
-export NGINX_INCLUDES="$NGINX_INCLUDES"
+export APACHE_INCLUDES="$APACHE_INCLUDES"
 
-erb conf/nginx.conf.erb > /app/vendor/nginx/conf/nginx.conf
-erb conf/site.conf.erb > /app/vendor/nginx/conf/site.conf
-
-mkdir -p /app/vendor/nginx/logs
+mkdir -p /app/vendor/apache/logs
 mkdir -p /app/vendor/php/var/log
 mkdir -p /app/vendor/php/run
 
-touch /app/vendor/nginx/logs/access.log \
-      /app/vendor/nginx/logs/error.log
+touch /app/vendor/apache/logs/access.log \
+      /app/vendor/apache/logs/error.log
 
 touch /app/vendor/php/var/log/error.log
 
-(tail -qF -n 0 /app/vendor/nginx/logs/access.log /app/vendor/nginx/logs/error.log /app/vendor/php/var/log/*.log &)
+(tail -qF -n 0 /app/vendor/apache/logs/access.log /app/vendor/apache/logs/error.log /app/vendor/php/var/log/*.log &)
 
-php-fpm -p "/app/vendor/php"
-nginx -p "/app/vendor/nginx" -c /app/vendor/nginx/conf/nginx.conf
-SH
+echo "Launching apache"
+exec /app/vendor/apache/bin/httpd -DNO_DETACH
+EOF
 
-chmod a+x "bin/run"
+# post
+chmod +x boot.sh
+
+# clean the cache
+rm -rf $CACHE_DIR/*
+
+# WIN
+echo "                                     ~??IIIII?I~                   "
+echo "                               ~II7I77I7I:                         "
+echo "                           I??II777?                               "
+echo "                       :??I,II7                                    "
+echo "                    +?I,=II:                    +I?                "
+echo "                  +I, ?I?                      ?  ?=+              "
+echo "               :?+ :?7                            ,??=,            "
+echo "             ~?? II                               ,??++            "
+echo "      ~:   =?+ ?I         :      =7       =?      ?I??+            "
+echo "    :=+  :+=,?I          ~                       :7I??             "
+echo "     ?:~+, =I                 +77777?          +7 ~                "
+echo "      =?II+               ?=IIII/  +=                              "
+echo "     ,?? =+I?:    =~  ?II?++??/     7= ~                           "
+echo "    ??+I   ,?=+   I+?+?III\\++     =III+                           "
+echo "  7                ~~=     ,|  \?III?I                             "
+echo " +:+?+               ===,:??+,  /I?                                "
+echo "                    ,=++?II????I???                                "
+echo "                            ?|| | ||                               "
+echo "                           I        :?                             "
+echo "  :                       ~I|  | || |I                             "
+echo "    =~:                    +?IIIII?=                               "
+echo "      ,====:                                           +++         "
+echo "         ~=++==++~                                     ?+,    =+++ "
+echo "             ,?++??I????II+=:,                     ,~,:=~ ++?= ~+= "
+echo "                    ++?+I?I?: :=?II7I7I7777??=~:,    ,==, ~    ,   "
+echo "                            ~+77I7?II?II+=~=++?++=,   +?=          "
+echo "-----> Feel is good                                 +=~:           "
 echo ""
-echo "                                           ~??IIIII?I~                         ,"
-echo "                                     ~II7I77I7I:                               ,"
-echo "                                 I??II777?                                     ,"
-echo "                             :??I,II7                                          ,"
-echo "                          +?I,=II:                    +I?                      ,"
-echo "                        +I, ?I?                      ?  ?=+                    ,"
-echo "                     :?+ :?7                            ,??=,                  ,"
-echo "                   ~?? II                               ,??++                  ,"
-echo "            ~:   =?+ ?I         :      =7       =       ?I??+                  ,"
-echo "          :=+  :+=,?I          ~                       :7I??                   ,"
-echo "           ?:~+, =I                 +77777?          +7 ~                      ,"
-echo "            =?II+               ?=IIII~  +=                                    ,"
-echo "           ,?? =+I?:    =~  ?II?++??      7= ~                                 ,"
-echo "          ??+I   ,?=+   I+?+?III~=++     =III+                                 ,"
-echo "        7                ~~=     ,+  =?III?I                                   ,"
-echo "       +:+?+               ===,:??+,  =I?                                      ,"
-echo "                          ,=++?II????I???                                      ,"
-echo "                                  ?:: ~ ,,                                     ,"
-echo "                                 I        :?                                   ,"
-echo "        :                       ~I,  ? I: ?I                                   ,"
-echo "          =~:                    +?IIIII?=                                     ,"
-echo "            ,====:                                           +++               ,"
-echo "               ~=++==++~                                     ?+,    =+++       ,"
-echo "                   ,?++??I????II+=:,                     ,~,:=~ ++?= ~+=       ,"
-echo "                          ++?+I?I?: :=?II7I7I7777??=~:,    ,==, ~    ,         ,"
-echo "                                  ~+77I7?II?II+=~=++?++=,   +?=                ,"
-echo "                                                          +=~:                 ,"
-echo ""
-echo "-----> Feels good"
