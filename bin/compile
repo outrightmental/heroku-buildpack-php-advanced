@@ -52,7 +52,7 @@ function install_composer_deps() {
     echo "-----> Installing application dependencies with Composer"
     {
         cd "$target"
-        "$BUILD_DIR/app/vendor/php/bin/php" \
+        "$BUILD_DIR/vendor/php/bin/php" \
             "$target/app/vendor/composer/bin/composer.phar" install \
             --prefer-dist \
             --optimize-autoloader \
@@ -173,7 +173,7 @@ echo "-----> Bundling PHP ${PHP_VERSION}"
 fetch_package php "$PHP_VERSION" "$VENDORED_PHP"
 
 echo "-----> Vendoring binaries into slug"
-[ ! -d "$BUILD_DIR/app/vendor" ] && mkdir -p "$BUILD_DIR/app/vendor"
+[ ! -d "$BUILD_DIR/vendor" ] && mkdir -p "$BUILD_DIR/vendor"
 cp -R "$VENDORED_NGINX/" "vendor/nginx"
 cp -R "$VENDORED_PHP/" "vendor/php"
 
@@ -198,7 +198,7 @@ for conf in $PHP_EXTRA_CONFIG; do
 done
 
 for include in $PHP_INCLUDES; do
-    cp "$BUILD_DIR/$include" "app/vendor/php/etc/conf.d"
+    cp "$BUILD_DIR/$include" "vendor/php/etc/conf.d"
 done
 
 for f in "$basedir/../frameworks/"*; do
