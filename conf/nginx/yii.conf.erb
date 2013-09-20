@@ -32,7 +32,7 @@
             set $fsn $fastcgi_script_name;
         }
 
-        fastcgi_pass   /tmp/php-fpm.sock;
+        fastcgi_pass   unix:/tmp/php-fpm.sock;
         include fastcgi_params;
         fastcgi_param  SCRIPT_FILENAME  $document_root$fsn;
 
